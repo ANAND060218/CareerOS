@@ -1,0 +1,41 @@
+{
+  "name": "CareerOS Hackathon",
+  "image": "mcr.microsoft.com/devcontainers/universal:2",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "enableNonRootDocker": "true",
+      "moby": "true"
+    },
+    "ghcr.io/devcontainers/features/python:1": {
+      "installTools": false,
+      "version": "3.11"
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python"
+      },
+      "extensions": [
+        "ms-python.python",
+        "bradlc.vscode-tailwindcss"
+      ]
+    }
+  },
+  "forwardPorts": [5002, 5173],
+  "portsAttributes": {
+    "5002": {
+      "label": "FastAPI Backend",
+      "onAutoForward": "notify"
+    },
+    "5173": {
+      "label": "React Frontend",
+      "onAutoForward": "notify"
+    }
+  },
+  "postCreateCommand": "bash setup_devcontainer.sh"
+}
