@@ -51,7 +51,17 @@ export default function Dashboard() {
             <h2 className="text-xl font-bold flex items-center border-b border-slate-700 pb-2">
                 Opportunity Feed
             </h2>
-            {recommendations.slice(0, 5).map(rec => (
+            {recommendations.length === 0 ? (
+                <div className="card border-dashed border-accent/40 bg-slate-900/70">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div>
+                            <h3 className="text-lg font-bold text-white">Launch the workflow from any job</h3>
+                            <p className="text-sm text-slate-400 mt-1">The dashboard is ready. Open a job posting and start the Lemma workflow from the detail view.</p>
+                        </div>
+                        <Link to="/jobs" className="btn-primary whitespace-nowrap">Browse Jobs</Link>
+                    </div>
+                </div>
+            ) : recommendations.slice(0, 5).map(rec => (
                 <div key={rec.job_id} className="card hover:border-accent/50 transition-colors cursor-pointer group">
                     <div className="flex justify-between items-start">
                         <div>
@@ -80,8 +90,8 @@ export default function Dashboard() {
                     </div>
 
                     <div className="mt-4 flex justify-end">
-                        <Link to={`/jobs/${rec.job_id}`} className="text-sm text-accent flex items-center hover:underline">
-                            Start Application Workflow <ChevronRight size={16} />
+                        <Link to={`/jobs/${rec.job_id}`} className="btn-primary text-sm px-4 py-2">
+                            Launch Workflow
                         </Link>
                     </div>
                 </div>

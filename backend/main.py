@@ -1,9 +1,12 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from routes import jobs, applications, resumes, ai, dashboard, memory
 
 app = FastAPI(title="CareerOS API", description="Backend for CareerOS", version="1.0.0")
+
+PORT = int(os.getenv("PORT", "5002"))
 
 # Configure CORS
 app.add_middleware(
@@ -23,4 +26,9 @@ app.include_router(memory.router, prefix="/memory", tags=["AI Memory"])
 
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to CareerOS API"}
+    return {
+        "message": "Welcome to CareerOS API",
+        "port": PORT,
+        "mongo_configured": bool(os.getenv("MONGO_URI")),
+        "gemini_configured": bool(os.getenv("GEMINI_API_KEY")),
+    }

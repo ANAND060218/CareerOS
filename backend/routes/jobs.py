@@ -9,6 +9,10 @@ def fix_id(job: dict):
     if "_id" in job:
         job["id"] = str(job["_id"])
         del job["_id"]
+
+    if "date_posted" in job and hasattr(job["date_posted"], "isoformat"):
+        job["date_posted"] = job["date_posted"].isoformat()
+
     return job
 
 @router.get("/", response_model=List[Job])

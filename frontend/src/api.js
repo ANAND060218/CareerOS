@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: 'http://localhost:5002',
+    baseURL: '',
 });
 
 export const getJobs = async (company = '') => {
@@ -26,6 +26,16 @@ export const matchJob = async (job_description, resume_text) => {
 
 export const optimizeResume = async (resume_text, target_job_description = '') => {
     const res = await api.post('/ai/resume/optimize', { resume_text, target_job_description });
+    return res.data;
+};
+
+export const saveResumeMemory = async (resume_text) => {
+    const res = await api.post('/memory/', { resume_text });
+    return res.data;
+};
+
+export const runLemmaWorkflow = async (resume_text, job_description, company = '') => {
+    const res = await api.post('/ai/workflow', { resume_text, job_description, company });
     return res.data;
 };
 

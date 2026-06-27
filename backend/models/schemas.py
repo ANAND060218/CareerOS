@@ -18,11 +18,29 @@ class Job(BaseModel):
         extra = "allow"
 
 class ResumeUpload(BaseModel):
-    text: str 
+    text: str
+
+class ApplicationCreate(BaseModel):
+    job_id: str
+    status: str = "pending"
+
+class ApplicationResponse(BaseModel):
+    id: Optional[str] = None
+    job_id: str
+    status: str
+    created_at: Optional[datetime] = None
+    job_details: Optional[Job] = None
 
 class AIMatchRequest(BaseModel):
     job_description: str
     resume_text: str
+
+class AIMatchResponse(BaseModel):
+    match_score: int
+    missing_skills: List[str] = []
+    strengths: List[str] = []
+    weaknesses: List[str] = []
+    reasoning: str = ""
 
 class AIResumeOptimizeRequest(BaseModel):
     resume_text: str

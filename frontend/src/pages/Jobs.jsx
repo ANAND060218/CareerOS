@@ -49,9 +49,14 @@ export default function Jobs() {
                 {job.experience && <p className="flex items-center"><Clock size={16} className="mr-2 text-slate-400" /> {job.experience}</p>}
               </div>
             </div>
-            <Link to={`/jobs/${job.id}`} className="btn-primary block text-center w-full mt-4">
-              View Details
-            </Link>
+            <div className="mt-4 space-y-2">
+              <Link to={`/jobs/${job.id}`} className="btn-primary block text-center w-full">
+                Launch Workflow
+              </Link>
+              <Link to={`/jobs/${job.id}`} className="text-sm text-slate-400 text-center block hover:text-white">
+                View Details
+              </Link>
+            </div>
           </div>
         ))}
       </div>
