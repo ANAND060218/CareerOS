@@ -7,17 +7,20 @@ load_dotenv()
 
 MONGO_URI = os.getenv("MONGO_URI")
 
-client = AsyncIOMotorClient(MONGO_URI) if MONGO_URI else None
+# We make the client initialization resilient for Codespaces where the ENV might not be set immediately.
+client = None
+db = None
 
-# The URI has the db name in it, but motor doesn't automatically select it from URI easily if we want to be explicit.
-# We fall back to a lightweight in-memory placeholder so the app can still boot in cloud/demo environments.
-db: Any = None
-
-if client:
-    db = client.get_default_database("jobagg")
-
+if MONGO_URI:
+    try:
+        client = AsyncIOMotorClient(MONGO_URI)
+        db = client.get_default_database("jobagg")
+    except Exception as e:
+        print(f"Warning: Failed to connect to MongoDB: {e}")
+else:
+    print("Warning: MONGO_URI not found in environment variables. Database features will fail until configured.")
 
 def get_db():
-    if db is None:
-        raise RuntimeError("MONGO_URI is not configured. Set it to use database-backed endpoints.")
+    if not db:
+        raise RuntimeError("Database connection not initialized. Please set MONGO_URI in .env")
     return db
