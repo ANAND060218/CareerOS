@@ -16,6 +16,12 @@ import httpx
 DEFAULT_CONFIG_PATH = Path.home() / ".lemma" / "config.json"
 CAREER_OS_POD_NAME = "career-os"
 
+# In-memory session cache to support refresh token rotation in server environments (like Render)
+_SESSION_CACHE = {
+    "token": None,
+    "refresh_token": None,
+}
+
 
 @dataclass
 class LemmaConfig:
@@ -140,15 +146,24 @@ def load_lemma_config(
             "Lemma pod_id not found. Run setup_lemma.ps1 or set LEMMA_POD_ID in the environment."
         )
 
-    token = (
-        os.getenv("LEMMA_TOKEN")
-        or os.getenv("LEMMA_ACCESS_TOKEN")
-        or _extract_token(server_config)
-    )
-    refresh_token = (
-        os.getenv("LEMMA_REFRESH_TOKEN")
-        or _extract_refresh_token(server_config)
-    )
+    global _SESSION_CACHE
+
+    # 1. Try to load from in-memory cache first (most up-to-date)
+    token = _SESSION_CACHE["token"]
+    refresh_token = _SESSION_CACHE["refresh_token"]
+
+    # 2. If not in cache, load from config file if it exists and has auth (prevents using stale .env values)
+    if not token:
+        config_token = _extract_token(server_config)
+        if config_token:
+            token = config_token
+            refresh_token = _extract_refresh_token(server_config)
+
+    # 3. If still not found, fall back to environment variables (for cloud/Docker environments)
+    if not token:
+        token = os.getenv("LEMMA_TOKEN") or os.getenv("LEMMA_ACCESS_TOKEN")
+        refresh_token = os.getenv("LEMMA_REFRESH_TOKEN")
+
     if not token:
         raise RuntimeError(
             "Lemma access token not found. Run `lemma auth login` or set LEMMA_TOKEN."
@@ -159,6 +174,11 @@ def load_lemma_config(
             session = refresh_access_token(base_url, refresh_token)
             token = session.get("access_token") or token
             refresh_token = session.get("refresh_token") or refresh_token
+            
+            # Cache the rotated session in-memory
+            _SESSION_CACHE["token"] = token
+            _SESSION_CACHE["refresh_token"] = refresh_token
+            
             try:
                 config_path.parent.mkdir(parents=True, exist_ok=True)
                 _persist_refreshed_session(root_config, active_server, session, config_path)
@@ -219,8 +239,15 @@ async def list_agents(config: LemmaConfig | None = None, *, timeout: float = 12.
             headers=auth_headers(cfg),
         )
     if response.status_code == 401 and cfg.refresh_token:
+        global _SESSION_CACHE
         session = refresh_access_token(cfg.base_url, cfg.refresh_token)
         cfg.token = session.get("access_token") or cfg.token
+        cfg.refresh_token = session.get("refresh_token") or cfg.refresh_token
+        
+        # Cache the rotated session in-memory
+        _SESSION_CACHE["token"] = cfg.token
+        _SESSION_CACHE["refresh_token"] = cfg.refresh_token
+        
         async with httpx.AsyncClient(timeout=20.0) as client:
             response = await client.get(
                 f"{cfg.base_url}/pods/{cfg.pod_id}/agents",
@@ -280,8 +307,15 @@ async def _run_agent_once(
             headers=headers,
         )
         if create_response.status_code == 401 and config.refresh_token:
+            global _SESSION_CACHE
             session = refresh_access_token(config.base_url, config.refresh_token)
             config.token = session.get("access_token") or config.token
+            config.refresh_token = session.get("refresh_token") or config.refresh_token
+            
+            # Cache the rotated session in-memory
+            _SESSION_CACHE["token"] = config.token
+            _SESSION_CACHE["refresh_token"] = config.refresh_token
+            
             headers = auth_headers(config)
             create_response = await client.post(
                 f"{config.base_url}/pods/{config.pod_id}/conversations",
