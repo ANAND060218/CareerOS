@@ -39,8 +39,16 @@ export default function MasterProfileView({ initialProfile, onSave }) {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch('/api/resume-hub/master-profile/upload-resume', {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('careeros_token') : null;
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const apiBase = import.meta.env.VITE_API_URL || '';
+      const response = await fetch(`${apiBase}/resume-hub/master-profile/upload-resume`, {
         method: 'POST',
+        headers,
         body: formData,
       });
 

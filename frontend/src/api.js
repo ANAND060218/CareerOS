@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const api = axios.create({ baseURL: '', timeout: 300000 });
+const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || '', timeout: 300000 });
 
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
@@ -127,7 +127,8 @@ export const runLemmaWorkflowStream = async (resume_text, job_description, compa
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch('/ai/workflow/stream', {
+  const apiBase = import.meta.env.VITE_API_URL || '';
+  const response = await fetch(`${apiBase}/ai/workflow/stream`, {
     method: 'POST',
     headers,
     body: JSON.stringify({
