@@ -156,13 +156,19 @@ def load_lemma_config(
     if not token:
         config_token = _extract_token(server_config)
         if config_token:
-            token = config_token
-            refresh_token = _extract_refresh_token(server_config)
+            token = config_token.strip()
+            config_refresh = _extract_refresh_token(server_config)
+            if config_refresh:
+                refresh_token = config_refresh.strip()
 
     # 3. If still not found, fall back to environment variables (for cloud/Docker environments)
     if not token:
-        token = os.getenv("LEMMA_TOKEN") or os.getenv("LEMMA_ACCESS_TOKEN")
-        refresh_token = os.getenv("LEMMA_REFRESH_TOKEN")
+        env_token = os.getenv("LEMMA_TOKEN") or os.getenv("LEMMA_ACCESS_TOKEN")
+        if env_token:
+            token = env_token.strip()
+        env_refresh = os.getenv("LEMMA_REFRESH_TOKEN")
+        if env_refresh:
+            refresh_token = env_refresh.strip()
 
     if not token:
         raise RuntimeError(
