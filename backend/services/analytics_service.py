@@ -1,18 +1,9 @@
 from database import get_db
 
-async def get_dashboard_analytics():
-    """
-    Returns analytics metrics for the operator dashboard.
-    In Lemma, some of this state might live in Lemma Tables eventually.
-    """
+async def get_dashboard_analytics(user_id: str | None = None):
     db = get_db()
-    
-    # Example logic assuming a 'workflows' or 'applications' collection
-    # For now, we will query the applications collection that we set up
-    
-    pipeline = [
-        {"$group": {"_id": "$status", "count": {"$sum": 1}}}
-    ]
+    match_filter = {"user_id": user_id} if user_id else {}
+    pipeline = [{"$match": match_filter}, {"$group": {"_id": "$status", "count": {"$sum": 1}}}]
     
     cursor = db.applications.aggregate(pipeline)
     results = await cursor.to_list(length=10)

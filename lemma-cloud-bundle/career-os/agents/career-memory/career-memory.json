@@ -1,0 +1,20 @@
+{
+  "agent_runtime": {
+    "model_name": "deepseek-v4-flash",
+    "profile_id": "system:lemma"
+  },
+  "description": "Stores user preferences, tracks completed skills, logs interviews, and personalizes recommendations.",
+  "icon_url": null,
+  "input_schema": {},
+  "instruction": {
+    "$file": "instruction.md"
+  },
+  "metadata": null,
+  "name": "career-memory",
+  "output_schema": {},
+  "permissions": {
+    "grants": []
+  },
+  "toolsets": [],
+  "visibility": "POD"
+}

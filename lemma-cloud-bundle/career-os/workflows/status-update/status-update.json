@@ -1,0 +1,50 @@
+{
+  "description": "Orchestrates status update workflow.",
+  "edges": [
+    {
+      "id": "e1",
+      "label": null,
+      "source": "intake",
+      "target": "end"
+    }
+  ],
+  "icon_url": null,
+  "mode": "GLOBAL",
+  "name": "status-update",
+  "nodes": [
+    {
+      "config": {
+        "assignee_pod_member_id": null,
+        "assignee_pod_member_id_expression": null,
+        "input_schema": {
+          "properties": {
+            "note": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "note"
+          ],
+          "type": "object"
+        },
+        "ui_schema": null
+      },
+      "id": "intake",
+      "label": "Intake",
+      "position": null,
+      "type": "FORM"
+    },
+    {
+      "config": {},
+      "id": "end",
+      "label": "Done",
+      "position": null,
+      "type": "END"
+    }
+  ],
+  "start": {
+    "config": null,
+    "type": "MANUAL"
+  },
+  "visibility": "POD"
+}

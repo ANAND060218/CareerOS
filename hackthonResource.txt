@@ -1,0 +1,89 @@
+👋 Start here — this thread has everything you need.
+Please check this thread before asking in help as this might already have answers to your query. It covers:
+
+How to start using Lemma + how to use it in your IDE
+How non-technical folks can get started
+Hosting your pod on lemma.work
+Hackathon problem statements, judging criteria & the submission form
+
+📢 We just pushed a major update — a bunch of the big issues are fixed, and Lemma should feel much faster now.
+
+🪟 Windows: the CLI + skills install fix is landing tomorrow. Until then, use the alternatives in Message 3 below 👇
+
+Use ⁠lemma-help for help related to sdk/platform
+Use ⁠hackathon-general for all hackathon related doubts 
+ayushgautam — 01:54
+🚀 Message 2:  Recommended ways to use Lemma
+
+Please remember that your Lemma credits are limited. Use them mainly for testing and deploying once your product is ready. For the core building process, you will have to mainly use your IDE/coding agent/subscription/keys or try the OpenCode method shared in the guide.
+
+Quickstart guide → https://lemma-quickstart.vercel.app/
+It walks you through the easiest setup paths:
+
+-> Developers — three options: run Lemma locally, use it in your IDE (Claude Code / Codex / Cursor + Lemma Cloud), or bring your own API key on lemma.work
+
+-> Non-developers — use your Claude Code / Codex / OpenCode: paste one prompt and your agent does the whole setup
+No subscription? A free path using OpenCode is included
+
+💡 Heads up: your Lemma credits are limited — use them mainly for testing and deploying once your product is ready. For the core building, rely on your IDE / coding agent / subscription / keys, or the OpenCode method in the guide. 
+___
+
+🪟 Message 3 — Windows users
+
+The native Windows fix for installing the CLI + skills is coming tomorrow — we're testing it now. Until then, two ways to build on Windows:
+
+Use WSL — run the local Lemma stack inside WSL (Windows Subsystem for Linux) + Docker Desktop, then follow the developer "use Lemma locally" steps in the guide.
+
+Bring your own key — skip local install entirely: add your model-provider API key to a hosted pod on lemma.work and build in the browser → Find the guide for it here: "use my key on lemma.work" path on: https://lemma-quickstart.vercel.app/
+
+We'll post here as soon as the Windows fix is live. 🙌 
+__
+
+📝 Message 4 — Hackathon submission
+
+Submit here → https://forms.gle/Uapf6KpBBuVrqdoZA
+
+🗓 Deadline: 1st July, 2026
+You'll need:
+
+📝 The problem statement you chose
+🛠 What your product does and how it solves it
+💻 GitHub repo / source code link (optional)
+🎥 Demo video link
+🔗 Live product link (preferably hosted on lemma.work)
+
+✅ Recommended: host your pod on lemma.work, grant pod access to ayush@gappy.ai, and share the app link — that's faster for us to judge than a video. If it isn't hosted, share a Drive link to a screen recording instead. 
+__
+
+☁️ Message 5 — Host your locally-built pod on lemma.work
+
+Built your pod locally and want it hosted?
+
+Follow the "I want to use Lemma locally" section of the quickstart → https://lemma-quickstart.vercel.app/,
+
+or refer to the README → https://github.com/lemma-work/lemma-platform
+
+Using an IDE? Just ask your coding agent to import the pod to the cloud — it already has the Lemma builder skill installed, so it can do it for you.
+ 
+___
+
+📚 Message 6 — Hackathon docs (problem statements, judging criteria, rules)
+
+Everything on problem statements, judging criteria, and rules:
+
+https://docs.google.com/document/d/1uo4iKmB-gDC5kHUQC7SAwJbNOSy3zas9/edit
+Google Docs
+Gappy AI Hackathon Details.docx
+GAPPY.AI · NATIONAL AI HACKATHON · POWERED BY LEMMA SDK Ship to Get Hired. Build. Get hired. Win ₹1 Lakh. India's first hackathon powered by Lemma SDK — open-source infrastructure for coding agents to build agentic apps that run real work. Build a working agentic app, win from a ₹1 Lakh pr...
+Image
+___
+
+⭐ Message 7 — Support us
+
+If Lemma's been useful, please star the repo → https://github.com/lemma-work/lemma-platform
+
+We're shipping fixes and new features frequently — starring keeps you updated and helps other builders find Lemma 🙏
+GitHub
+GitHub - lemma-work/lemma-platform: The open-source workspace where...
+The open-source workspace where humans and AI agents work as one team. - lemma-work/lemma-platform
+The open-source workspace where humans and AI agents work as one team. - lemma-work/lemma-platform

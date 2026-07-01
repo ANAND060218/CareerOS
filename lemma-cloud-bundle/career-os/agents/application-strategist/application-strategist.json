@@ -1,0 +1,26 @@
+{
+  "agent_runtime": {
+    "model_name": "deepseek-v4-flash",
+    "profile_id": "system:lemma"
+  },
+  "description": "You write cover letters, prepare outreach strategies, outline interview preparation plans, and create follow-up reminders.",
+  "icon_url": null,
+  "input_schema": {},
+  "instruction": {
+    "$file": "instruction.md"
+  },
+  "metadata": null,
+  "name": "application-strategist",
+  "output_schema": {},
+  "permissions": {
+    "grants": [
+      {
+        "resource_type": "connector",
+        "resource_name": "googletasks",
+        "permission_ids": ["connector.use"]
+      }
+    ]
+  },
+  "toolsets": ["TODO", "USER_INTERACTION"],
+  "visibility": "POD"
+}

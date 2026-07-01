@@ -34,12 +34,13 @@ lemma table create ai_memory --schema '{"user_id":"string","skills":["string"],"
 lemma table create applications || true
 
 echo "Creating Agents..."
-lemma agent create opportunity-scout --instructions "You discover the best jobs by analyzing 5000+ scraped jobs against the user's AI Memory." || true
-lemma agent create job-matcher --instructions "You analyze a specific job and the user's skills to determine strengths, missing skills, and match percentage." || true
-lemma agent create resume-advisor --instructions "You rewrite the user's resume for a specific job to maximize ATS compatibility." || true
-lemma agent create career-mentor --instructions "You provide high-level career guidance on positioning for this specific role." || true
-lemma agent create application-strategist --instructions "You review the match, resume, and mentor advice to make a final recommendation: Apply Now, Wait, or Skip." || true
-lemma agent create interview-coach --instructions "You generate behavioral and technical questions based on the job description." || true
+lemma agent create opportunity-intelligence --instructions "You analyze the job listing, calculate match score, analyze company details, estimate interview difficulty, and show hiring trends." || true
+lemma agent create career-mentor --instructions "You analyze resume, optimize formatting, identify skill gaps, and generate learning roadmaps and study plans." || true
+lemma agent create application-strategist --instructions "You write cover letters, prepare outreach strategies, outline interview preparation plans, and create follow-up reminders." || true
+lemma agent create career-memory --instructions "You store user preferences, track completed skills, log interviews, and learn from user actions to personalize recommendations." || true
+lemma agent create resume-tailor --instructions "You are a specialized agent that edits and tailors candidate resume content to align precisely with specific target job roles." || true
+lemma agent create ats-scanner --instructions "You are a specialized agent that scans candidate resume versions against target job descriptions to analyze keyword density, scoring compatibility, and highlight formatting opportunities." || true
+
 
 echo "Creating Workflows..."
 lemma workflow create job-discovery || true

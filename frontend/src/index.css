@@ -1,18 +1,42 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   body {
-    @apply bg-background text-white antialiased font-sans;
+    @apply bg-background text-slate-100 antialiased font-sans;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(45, 212, 191, 0.08), transparent),
+      radial-gradient(ellipse 60% 40% at 100% 0%, rgba(167, 139, 250, 0.06), transparent);
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/30;
+    @apply px-4 py-2 bg-gradient-to-r from-teal-500 to-teal-600 text-slate-950 font-semibold rounded-xl
+      hover:from-teal-400 hover:to-teal-500 transition-all shadow-glow;
+  }
+  .btn-secondary {
+    @apply px-4 py-2 bg-surface text-teal-300 font-medium rounded-xl border border-teal-500/30
+      hover:border-teal-400/50 hover:bg-teal-950/30 transition-all;
+  }
+  .btn-ghost {
+    @apply px-4 py-2 bg-surface/60 text-slate-300 rounded-xl border border-slate-700
+      hover:border-violet-500/40 hover:text-violet-300 transition-all;
   }
   .card {
-    @apply bg-surface rounded-xl p-6 border border-slate-700 shadow-xl backdrop-blur-sm bg-opacity-90;
+    @apply bg-surface/90 rounded-2xl p-6 border border-slate-700/80 shadow-xl backdrop-blur-sm;
+  }
+  .input-field {
+    @apply w-full rounded-xl border border-slate-700 bg-slate-950/80 px-4 py-3.5 text-sm text-slate-100
+      placeholder-slate-500 focus:outline-none focus:border-teal-500/60 focus:ring-1 focus:ring-teal-500/30;
+  }
+  .stat-bar {
+    @apply h-2 rounded-full bg-slate-800 overflow-hidden;
+  }
+  .stat-bar-fill {
+    @apply h-full rounded-full transition-all duration-700 ease-out;
   }
 }

@@ -1,0 +1,28 @@
+{
+  "name": "job-discovery",
+  "description": "Orchestrates job discovery workflow.",
+  "start": { "type": "MANUAL" },
+  "nodes": [
+    {
+      "id": "intake",
+      "type": "FORM",
+      "label": "Intake",
+      "config": {
+        "input_schema": {
+          "type": "object",
+          "properties": { "note": { "type": "string" } },
+          "required": ["note"]
+        }
+      }
+    },
+    {
+      "id": "end",
+      "type": "END",
+      "label": "Done"
+    }
+  ],
+  "edges": [
+    { "id": "e1", "source": "intake", "target": "end" }
+  ],
+  "visibility": "POD"
+}

@@ -1,0 +1,10 @@
+{
+  "name": "ai_memory",
+  "primary_key_column": "id",
+  "enable_rls": true,
+  "visibility": "POD",
+  "columns": [
+    { "name": "skills", "type": "JSON" },
+    { "name": "preferred_roles", "type": "JSON" }
+  ]
+}

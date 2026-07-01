@@ -1,0 +1,12 @@
+{
+  "name": "workflow_state",
+  "primary_key_column": "id",
+  "enable_rls": true,
+  "visibility": "POD",
+  "columns": [
+    { "name": "status", "type": "TEXT" },
+    { "name": "current_agent", "type": "TEXT" },
+    { "name": "job_id", "type": "TEXT" },
+    { "name": "timestamp", "type": "DATETIME" }
+  ]
+}

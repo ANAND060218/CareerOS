@@ -1,0 +1,1134 @@
+================================================================================
+CAREEROS — AGENT MEMORY FILE (FULL BLUEPRINT)
+================================================================================
+Purpose: Onboard any AI agent (Cursor, Lemma, Codex, Gemini) with COMPLETE
+         project context — every folder, every file, every feature, every flow.
+Location: career-os/agentmemory.txt
+Last updated: 2026-06-28
+Hackathon: Gappy AI National Hackathon — Powered by Lemma SDK
+Deadline: 1 July 2026
+Submission: https://forms.gle/Uapf6KpBBuVrqdoZA
+Lemma quickstart: https://lemma-quickstart.vercel.app/
+Hackathon docs: hackthonResource.txt (same folder)
+
+================================================================================
+1. PRODUCT VISION
+================================================================================
+
+CareerOS IS:
+  "Your personal AI recruiting department" — an autonomous AI workforce that
+  continuously searches, analyzes, plans, and manages a person's career.
+
+CareerOS IS NOT:
+  - AI Resume Builder (it's an OS, not a tool)
+  - AI Job Portal (it's an agent system, not a listing site)
+  - Chatbot + GPT wrapper (it chains 4 Lemma agents in a pipeline)
+
+Core Flow (Event-Driven):
+  Resume Uploaded → Memory Updated → Jobs Scored → Match Analysis →
+  Resume Optimized → Cover Letter → Application Planned → Interview Prep →
+  Memory Updated → Dashboard Timeline → Notification
+
+User uploads ONE PDF. Everything else happens automatically.
+
+For judges: demonstrate Lemma as an OPERATING SYSTEM (workflows, chained agents,
+memory, state, connectors) — not isolated API calls per page.
+
+================================================================================
+2. COMPLETE FOLDER STRUCTURE & BLUEPRINT
+================================================================================
+
+gappyAI/                              ← WORKSPACE ROOT
+├── install.sh                        Shell script (project-level installer)
+│
+├── career-os/                        ← MAIN APPLICATION (this project)
+│   ├── agentmemory.txt               ← THIS FILE — full project context for AI agents
+│   ├── README.md                     Quick-start guide (Codespaces-focused)
+│   ├── hackthonResource.txt          Hackathon Discord notes, links, rules, deadlines
+│   ├── APPLICATION_TRACKER_GUIDE.md  Docs for application tracker feature & automation gaps
+│   ├── LEMMA_DATA_USAGE.md           Docs: MongoDB vs Lemma storage design decisions
+│   ├── .env.example                  Template env vars (LEMMA_RUNTIME_PROFILE, LEMMA_ONLY, PREFER_LEMMA)
+│   ├── .gitignore                    Git ignore rules
+│   │
+│   ├── backend/                      ← PYTHON FASTAPI BACKEND (port 5002)
+│   ├── frontend/                     ← REACT + VITE FRONTEND (port 3000)
+│   ├── lemma-cloud-bundle/           ← LEMMA CLOUD DEPLOYMENT BUNDLE
+│   ├── lemma_schemas/                ← REFERENCE JSON SCHEMAS (not loaded at runtime)
+│   ├── mock_modules/                 ← WINDOWS COMPATIBILITY SHIMS
+│   ├── workflows/                    ← STUB LEMMA WORKFLOW DEFINITIONS
+│   │
+│   ├── setup_lemma.ps1               PowerShell: Creates Lemma pod + 4 agents (Windows)
+│   ├── setup_lemma.sh                Bash: Creates Lemma pod + 4 agents (Linux/Mac)
+│   ├── setup_gemini_lemma.ps1        PowerShell: Creates Gemini runtime profile in Lemma
+│   ├── setup_lemma_system_model.ps1  PowerShell: Configures system:lemma model assignment
+│   ├── setup_devcontainer.sh         Bash: Dev container setup (Codespaces)
+│   ├── deploy_to_lemma_cloud.ps1     PowerShell: Deploy pod bundle to lemma.work cloud
+│   ├── start.sh                      Combined backend+frontend startup helper
+│   └── .devcontainer/                VS Code dev container config (for Codespaces)
+│
+├── jobScraper/                       ← SEPARATE PROJECT — feeds MongoDB with job data
+│   └── jobaggrigater/
+│       ├── scraper.py                Main scraper (68KB — multi-source job scraper)
+│       ├── s.py                      Helper/secondary scraper script
+│       ├── requirements.txt          Scraper dependencies
+│       └── Dockerfile                Container build for scraper
+│
+└── oldui/                            ← LEGACY PROJECT — previous job portal UI
+    └── jobportal/
+        ├── backend/                  Old Express.js backend
+        ├── frontend/                 Old React frontend
+        └── README.md                 Legacy docs
+
+================================================================================
+3. BACKEND FOLDER — DETAILED BLUEPRINT
+================================================================================
+
+career-os/backend/
+├── .env                 Environment variables (MONGO_URI, GEMINI_API_KEY, JWT_SECRET, LEMMA_*)
+├── main.py              FastAPI app entry point — registers all 8 route modules
+├── database.py          MongoDB connection via Motor (async) — database name "jobagg"
+├── dependencies.py      Auth dependency injection (get_current_user, get_optional_user)
+├── requirements.txt     Python package dependencies
+├── .venv/               Python virtual environment (local)
+├── venv/                Alternate virtual environment directory
+│
+├── models/
+│   ├── __init__.py
+│   └── schemas.py       ALL Pydantic data models:
+│                          • Job (title, company, location, experience, description, logo, date_posted, apply_link, technologies)
+│                          • UserRegister, UserLogin, UserResponse, UserProfileUpdate
+│                          • ResumeUpload
+│                          • ApplicationCreate, ApplicationResponse
+│                          • AIMatchRequest, AIMatchResponse
+│                          • AIResumeOptimizeRequest
+│                          • AIInterviewQuestionsRequest
+│                          • RecommendationResponse
+│                          • AIMemory (preferred_roles, preferred_locations, ignored_companies,
+│                            applied_companies, rejected_companies, skills, skills_improving,
+│                            preferred_tech_stack, dream_companies, past_interviews,
+│                            weak_interview_topics, salary_expectation, career_goals, resume_text)
+│                          • WorkflowEvent (event_type, message, agent, metadata)
+│
+├── routes/
+│   ├── __init__.py
+│   ├── auth.py          USER AUTHENTICATION & PROFILE
+│   │                      POST /auth/register      → Create user + init AI memory + return JWT
+│   │                      POST /auth/login         → Verify password + return JWT
+│   │                      GET  /auth/me            → Current user info
+│   │                      GET  /auth/profile       → Full profile (user + memory + stats)
+│   │                      PATCH /auth/profile      → Update name, role, career prefs in both users + memory
+│   │                      DELETE /auth/account     → Delete user + all related data (memory, resumes, apps, events)
+│   │                    FEATURES USED: bcrypt hashing, JWT (PyJWT), 72-hour token expiry
+│   │
+│   ├── jobs.py          JOB LISTINGS
+│   │                      GET  /jobs/              → List jobs with filtering (title, company, location, experience)
+│   │                                                  Supports pagination (page, limit, hasMore)
+│   │                                                  Regex search on MongoDB fields
+│   │                                                  Handles location as string OR nested object (city/region/country)
+│   │                      GET  /jobs/{job_id}      → Single job detail by ObjectId
+│   │                    FEATURES USED: MongoDB regex queries, pagination, polymorphic location handling
+│   │
+│   ├── applications.py APPLICATION TRACKER
+│   │                      POST /applications/      → Create or update application (upsert by user_id+job_id)
+│   │                                                  Supports both ObjectId and manual job IDs
+│   │                                                  Attaches job_details from MongoDB lookup
+│   │                                                  Logs "application.saved" event
+│   │                      GET  /applications/      → List all user applications (sorted newest first)
+│   │                                                  Enriches each app with job_details
+│   │                      PUT  /applications/{id}/status → Update status (Saved/Applied/Interview/Offer/Rejected)
+│   │                                                       Logs "application.status" event
+│   │                    FEATURES USED: Duplicate prevention (upsert), event logging, status pipeline
+│   │
+│   ├── resumes.py       RESUME MANAGEMENT
+│   │                      POST /resumes/upload      → Save resume text → update memory → log event
+│   │                      POST /resumes/upload-file → Upload PDF/DOCX/TXT file → extract text → save
+│   │                                                   Optional: auto_workflow=true + job_id triggers
+│   │                                                   full chained workflow automatically after upload
+│   │                      GET  /resumes/            → List user's saved resumes (last 10)
+│   │                    FEATURES USED: File upload (python-multipart), PDF extraction (PyMuPDF/fitz),
+│   │                                   DOCX extraction (python-docx), TXT support, auto-workflow trigger
+│   │
+│   ├── ai.py            AI SERVICES & WORKFLOW ORCHESTRATION (LARGEST ROUTE FILE — 549 lines)
+│   │                      GET  /ai/lemma/status        → Full Lemma health check (agents, profiles, models, pod config)
+│   │                      GET  /ai/connectors/status   → Check Gmail, Calendar, Tasks connector status via Lemma
+│   │                      POST /ai/autonomous          → Run full 4-agent pipeline (with caching layer)
+│   │                                                      Uses MD5 hash of resume + workflow version for cache
+│   │                                                      On cache hit: returns instantly + logs cache event
+│   │                                                      On miss: runs run_chained_workflow() → saves to workflow_results
+│   │                                                      Updates AI memory with missing skills + applied_companies
+│   │                      POST /ai/workflow/stream     → SSE streaming version of autonomous workflow
+│   │                                                      Returns Server-Sent Events as each agent completes
+│   │                                                      Client receives: workflow_start → agent_start/complete ×4 → workflow_complete
+│   │                                                      Post-stream: saves to memory + cache
+│   │                      POST /ai/workflow            → Alias for /ai/autonomous
+│   │                      POST /ai/match               → Single resume↔job match analysis
+│   │                      POST /ai/resume/optimize     → Single resume optimization
+│   │                      POST /ai/interview/questions → Single interview question generation
+│   │                      GET  /ai/workflow/result/{id}→ Fetch cached workflow result for a job
+│   │                      POST /ai/chat                → Chat co-pilot (career-mentor agent via Lemma)
+│   │                                                      Includes resume context, job context, chat history
+│   │                                                      Detects [ACTION_TRIGGER: schedule] in responses
+│   │                      POST /ai/action/schedule     → Schedule study roadmap → MongoDB + Google Calendar via Lemma
+│   │                                                      Creates calendar_schedules docs + Lemma connector events
+│   │                      POST /ai/action/tasks        → Create Google Tasks via Lemma connector
+│   │                      GET  /ai/action/gmail-sync   → Simulate inbound recruiter email → auto-promote app to "Interview"
+│   │                                                      Auto-schedules interview prep block in calendar
+│   │                    FEATURES USED: Result caching (MD5 hash), SSE streaming, Lemma connectors
+│   │                                   (Google Calendar, Google Tasks, Gmail), chat co-pilot,
+│   │                                   study scheduling, connector operations
+│   │
+│   ├── dashboard.py     DASHBOARD & ANALYTICS
+│   │                      POST /dashboard/recommendations → AI-ranked job recommendations using opportunity-intelligence agent
+│   │                                                         Sends top 50 jobs + user resume/memory to Lemma agent
+│   │                                                         Returns scored/ranked recommendations with match reasons
+│   │                      GET  /dashboard/analytics       → Application funnel metrics (saved/applied/interview/offer/rejected)
+│   │                                                         Calculates offer_rate, interview_rate, high_priority_actions
+│   │                    FEATURES USED: MongoDB aggregation pipeline, AI-powered job ranking
+│   │
+│   ├── memory.py        AI MEMORY CRUD
+│   │                      GET  /memory/              → Get user's AI memory profile
+│   │                      POST /memory/              → Full replace of AI memory fields
+│   │                      PATCH /memory/             → Partial update of specific memory fields
+│   │                    FEATURES USED: Per-user memory persistence, upsert pattern
+│   │
+│   └── events.py        WORKFLOW EVENT TIMELINE
+│                          GET  /events/              → List last 50 workflow events (Mission Control timeline)
+│                        FEATURES USED: Chronological event log, agent attribution
+│
+├── services/
+│   ├── __init__.py
+│   ├── ai_service.py         GEMINI AI SERVICE (180 lines)
+│   │                           AIService class: Gemini client singleton, generate() with retry/backoff
+│   │                           Model: gemini-2.5-flash (Google genai SDK)
+│   │                           Retry logic: handles 429/RESOURCE_EXHAUSTED with 35s wait
+│   │                           JSON extraction: strips ```json``` markdown wrappers
+│   │                           calculate_match(): Lemma agent first → heuristic fallback
+│   │                           optimize_resume(): Lemma career-mentor first → keyword fallback
+│   │                           generate_interview_questions(): Lemma application-strategist first → template fallback
+│   │                           _fallback_match(): Keyword-overlap heuristic (35-96% score, clearly labeled)
+│   │                         FEATURES USED: Multi-provider architecture (Gemini + future OpenAI placeholder),
+│   │                                        Lemma-first with graceful degradation, honest fallback labeling
+│   │
+│   ├── lemma_client.py       LEMMA PLATFORM CLIENT (498 lines — most critical integration file)
+│   │                           LemmaConfig dataclass: base_url, pod_id, token, refresh_token, server_name
+│   │                           Config loading: ~/.lemma/config.json → servers.local.defaults.pod_id
+│   │                           Token management: JWT expiry detection, auto-refresh via /auth/cli/refresh
+│   │                           Token persistence: writes refreshed tokens back to config.json
+│   │                           run_agent(): Create conversation → send message → poll until COMPLETED/FAILED → extract assistant response
+│   │                           list_agents(): GET /pods/{pod_id}/agents
+│   │                           list_runtime_profiles(): GET /runtime-profiles (or /runtime/profiles fallback)
+│   │                           get_pod(): GET /pods/{pod_id}
+│   │                           patch_pod_default_profile(): PUT /pods/{pod_id} → fix pod config
+│   │                           check_lemma_health(): Full diagnostic — agents, profiles, models, pod config, recommended models
+│   │                           execute_connector_operation(): POST /connectors/operations/execute
+│   │                                                          Supports: GOOGLECALENDAR_CREATE_EVENT, GOOGLETASKS_CREATE_TASK
+│   │                           strip_html(): Cleans HTML tags from job descriptions
+│   │                           prefer_lemma_default(): Reads PREFER_LEMMA env var
+│   │                           RECOMMENDED_GEMINI_MODELS: ["gemini-2.5-flash", "gemini-2.0-flash", ...]
+│   │                           AVOID_LOCAL_MODELS: ["gpt-4o-mini", "gpt-4o"] (404 on local stack)
+│   │                         FEATURES USED: Full Lemma API integration, JWT token lifecycle, connector operations,
+│   │                                        auto-recovery (token refresh, fallback URLs), health diagnostics
+│   │
+│   ├── workflow_service.py   4-AGENT CHAINED WORKFLOW (650 lines — core business logic)
+│   │                           Pipeline: opportunity-intelligence → career-mentor → application-strategist → career-memory
+│   │                           Each agent receives output of previous agents (chained context)
+│   │                           extract_json(): Robust JSON parser (direct, outermost braces, regex, markdown strip)
+│   │                           _run_lemma_step_with_metrics(): Timed agent execution with error capture
+│   │                           _gemini_step_with_metrics(): Fallback to direct Gemini API
+│   │                           Agent prompts:
+│   │                             Step 1 - opportunity-intelligence: Match score, strengths, gaps, company intelligence
+│   │                                       (culture, tech_stack, hiring_trend, interview_process, salary_range, red_flags)
+│   │                             Step 2 - career-mentor: Resume optimization, ATS suggestions, keyword gaps,
+│   │                                       skill learning roadmap with difficulty/hours/resources/dependencies
+│   │                             Step 3 - application-strategist: Apply/Wait/Skip recommendation, cover letter,
+│   │                                       recruiter email, LinkedIn message, follow-up email, outreach strategy,
+│   │                                       checklist, behavioral/technical questions, prep plan, company research
+│   │                             Step 4 - career-memory: Workflow run summary, key action item
+│   │                           Default fallback data: When agents fail, uses reasonable defaults
+│   │                           Final response structure:
+│   │                             match_result, optimize_result, strategist_result, interview_result,
+│   │                             cover_letter, memory_sync, reasoning_graph, agent summaries
+│   │                           Two execution modes:
+│   │                             run_streaming_workflow(): SSE async generator (real-time frontend updates)
+│   │                             run_chained_workflow(): Synchronous batch (backward compat)
+│   │                         FEATURES USED: Chained agent pipeline, SSE streaming, progressive event logging,
+│   │                                        result caching, fallback defaults, timing metrics
+│   │
+│   ├── recommendation_service.py  JOB RECOMMENDATION ENGINE (112 lines)
+│   │                                Fetches top 50 jobs from MongoDB
+│   │                                Builds prompt with user resume + memory (roles, skills, goals)
+│   │                                Sends to opportunity-intelligence Lemma agent for ranking
+│   │                                Returns scored recommendations with match reasons
+│   │                              FEATURES USED: AI-powered job ranking, Lemma agent integration
+│   │
+│   ├── analytics_service.py       DASHBOARD ANALYTICS (35 lines)
+│   │                                MongoDB aggregation on applications by status
+│   │                                Calculates: metrics per status, total_applications, offer_rate,
+│   │                                            interview_rate, high_priority_actions
+│   │                              FEATURES USED: MongoDB aggregation pipeline
+│   │
+│   ├── auth_service.py            AUTHENTICATION SERVICE (32 lines)
+│   │                                bcrypt password hashing/verification
+│   │                                JWT token creation (HS256, 72-hour expiry)
+│   │                                JWT decode for request validation
+│   │                              FEATURES USED: PyJWT, bcrypt
+│   │
+│   ├── event_service.py           WORKFLOW EVENT LOGGER (41 lines)
+│   │                                log_event(): Insert event with user_id, type, message, agent, metadata, timestamp
+│   │                                get_events(): Fetch last N events (newest first)
+│   │                                Used by: all routes to track workflow activity
+│   │                              FEATURES USED: MongoDB event sourcing pattern
+│   │
+│   └── resume_parser.py           FILE TEXT EXTRACTION (42 lines)
+│                                    Supports: PDF (via PyMuPDF/fitz), DOCX (via python-docx), TXT, MD
+│                                    Returns extracted text as string
+│                                    Error handling: empty file, extraction failure, unsupported format
+│                                  FEATURES USED: PyMuPDF, python-docx
+│
+├── tests/
+│   └── test_import.py             Basic import smoke test
+│
+├── test_agent_quick.py            Quick Lemma agent test
+├── test_api_workflow_flow.py      Full API workflow integration test (3159 bytes)
+├── test_run_agent.py              Direct Lemma agent execution test
+├── test_web_app_lemma.py          Complete web app + Lemma integration test
+├── update_agents_profile.py       Script to update all Lemma agents to use a specific runtime profile
+└── inspect_workflow_runs_schema.py Script to inspect MongoDB workflow_runs schema
+
+================================================================================
+4. FRONTEND FOLDER — DETAILED BLUEPRINT
+================================================================================
+
+career-os/frontend/
+├── index.html           HTML entry point (Vite injects React app)
+├── package.json         Dependencies: react 18, react-router-dom 6, axios, lucide-react
+│                          Dev: vite 5, @vitejs/plugin-react, tailwindcss 3, postcss, autoprefixer
+├── package-lock.json    Lockfile
+├── vite.config.js       Vite configuration:
+│                          • Port 3000, host 0.0.0.0, strictPort
+│                          • Proxy ALL API routes to http://127.0.0.1:5002:
+│                            /jobs, /ai, /applications, /resumes, /dashboard, /memory, /auth, /events
+│                          • 300s timeout for AI workflow requests
+│                          • HTML bypass: returns index.html for browser navigation requests
+├── tailwind.config.js   TailwindCSS theme config (custom colors, fonts)
+├── postcss.config.js    PostCSS + TailwindCSS + autoprefixer
+├── dist/                Production build output (vite build)
+├── node_modules/        NPM packages
+│
+└── src/
+    ├── main.jsx         React entry point (renders App into #root)
+    ├── index.css        Global styles (Tailwind base + custom CSS variables)
+    ├── App.jsx          ROOT COMPONENT (125 lines)
+    │                      • BrowserRouter with 8 routes
+    │                      • AuthProvider wraps entire app
+    │                      • Navbar: CareerOS branding, nav links (Mission Control, Jobs, Applications, Resume, Career Mentor)
+    │                                Active link highlighting (teal glow), user name display, logout button
+    │                      • ProtectedRoute: Redirects to /login if not authenticated, shows spinner while loading
+    │                      Routes:
+    │                        /login         → Login (public)
+    │                        /              → Dashboard (protected) — Mission Control
+    │                        /jobs          → Jobs (protected) — job listing grid
+    │                        /jobs/:id      → JobDetail (protected) — full job + workflow panel
+    │                        /applications  → Applications (protected) — tracker
+    │                        /resume        → Resume (protected) — upload + manage
+    │                        /profile       → Profile (protected) — user settings
+    │                        /mentor        → MentorChat (protected) — AI career mentor chat
+    │
+    ├── api.js           FRONTEND API CLIENT (249 lines)
+    │                      axios instance with 300s timeout, JWT token auto-injection from localStorage
+    │                      ALL API functions:
+    │                        Auth: login, register, getMe, getProfile, updateProfile, deleteAccount
+    │                        Memory: getMemory, saveResumeMemory, patchMemory
+    │                        Jobs: getJobs (filtered, paginated), getJob
+    │                        Resumes: uploadResume (text), uploadResumeFile (file + optional auto_workflow)
+    │                        AI: getLemmaStatus, runLemmaWorkflow, runLemmaWorkflowStream (SSE),
+    │                            matchJob, optimizeResume, getWorkflowResult
+    │                        Workflow: getWorkflowEvents, chatWithJobCoPilot
+    │                        Actions: scheduleStudyRoadmap, syncGoogleTasks, syncGmailSurface, getConnectorsStatus
+    │                        Apps: createApplication, getApplications, updateApplicationStatus
+    │                        Dashboard: getRecommendations, getAnalytics
+    │                      SSE streaming: Uses native fetch() + ReadableStream for workflow/stream endpoint
+    │                      Error formatting: formatApiError() extracts detail from Axios errors
+    │
+    ├── context/
+    │   └── AuthContext.jsx  AUTH STATE MANAGEMENT (51 lines)
+    │                          React Context: user, loading, loginSession, logout, refreshUser
+    │                          JWT token stored in localStorage as "careeros_token"
+    │                          Auto-validates token on page load via getMe()
+    │                          Clears token on 401 or logout
+    │
+    ├── components/
+    │   ├── JobCard.jsx              JOB CARD COMPONENT (9544 bytes)
+    │   │                              Rich card with company branding (dynamic HSL colors from company name hash)
+    │   │                              Shows: title, company, location, experience, technologies, date posted
+    │   │                              Match score badge (color-coded: green/yellow/red)
+    │   │                              "Launch Workflow" / "View Analysis" buttons
+    │   │                              Apply link integration
+    │   │
+    │   └── FormattedJobDescription.jsx  JOB DESCRIPTION RENDERER (3578 bytes)
+    │                                      Parses HTML job descriptions safely
+    │                                      Renders formatted text with proper headings, lists, paragraphs
+    │
+    ├── pages/
+    │   ├── Login.jsx        LOGIN/REGISTER PAGE (3842 bytes)
+    │   │                      Toggle between login and register modes
+    │   │                      Email + password + name (register) form
+    │   │                      Role selection (default: "Software Engineer")
+    │   │                      Stores JWT token via AuthContext.loginSession()
+    │   │                      Redirects to / on success
+    │   │
+    │   ├── Dashboard.jsx    MISSION CONTROL DASHBOARD (17236 bytes — most complex page)
+    │   │                      SECTIONS:
+    │   │                        1. Welcome header with user name
+    │   │                        2. Stats cards: Total Applications, Interview Rate, Offer Rate, High Priority
+    │   │                        3. AI Recommendations panel (loads from /dashboard/recommendations)
+    │   │                           Shows AI-ranked jobs with match scores, reasons, skill gaps
+    │   │                        4. Mission Control Timeline (loads from /events/)
+    │   │                           Live feed of all workflow events (agent completions, app saves, gmail syncs)
+    │   │                           Color-coded by event type (agent.completed, workflow.started, connector.action.*)
+    │   │                        5. Quick Actions: buttons for Gmail sync, load recommendations
+    │   │                      FEATURES USED: Real-time data only (no mock values), Lemma status integration,
+    │   │                                     connector status display, analytics aggregation
+    │   │
+    │   ├── Jobs.jsx         JOB LISTING PAGE (13869 bytes)
+    │   │                      Grid of JobCard components with search/filter bar
+    │   │                      Filters: title, company, location, experience
+    │   │                      Pagination (Load More)
+    │   │                      Manual job description input: paste any job description + analyze
+    │   │                      "Load AI Scores" button (opt-in, not automatic — saves LLM quota)
+    │   │                      Links to /jobs/:id for full workflow
+    │   │
+    │   ├── JobDetail.jsx    JOB DETAIL + WORKFLOW PANEL (68213 bytes — LARGEST FILE)
+    │   │                      LEFT PANEL: Full job info (description, company, location, technologies)
+    │   │                      RIGHT PANEL: AI Workflow Launch Center
+    │   │                        • Resume upload (drag & drop or paste)
+    │   │                        • "Launch Autonomous Workflow" button
+    │   │                        • SSE streaming progress UI: shows each agent starting/completing in real-time
+    │   │                        • Tabbed results view after workflow completes:
+    │   │                          Tab 1 — Match Analysis: Score gauge, strengths, gaps, company intelligence
+    │   │                          Tab 2 — Resume Optimization: Optimized resume text, ATS suggestions, keywords
+    │   │                          Tab 3 — Cover Letter & Outreach: Cover letter, recruiter email, LinkedIn message, follow-up
+    │   │                          Tab 4 — Interview Prep: Behavioral questions, technical questions, prep plan, company research
+    │   │                          Tab 5 — Application Strategy: Apply/Wait/Skip recommendation, checklist, timeline
+    │   │                          Tab 6 — Skill Roadmap: Visual learning mindmap with difficulty, hours, resources, dependencies
+    │   │                        • Export functionality for all agent outputs (copy to clipboard / download)
+    │   │                        • Chat co-pilot sidebar: ask questions about the job in context
+    │   │                        • Connector actions: Schedule study blocks, create Google Tasks
+    │   │                        • Reasoning graph: shows prompts, outputs, timing for each agent
+    │   │                        • Cached result detection: loads previous results instantly
+    │   │                      FEATURES USED: SSE streaming, tabbed UI, export, chat co-pilot, connector actions,
+    │   │                                     caching, real-time progress, drag-and-drop file upload
+    │   │
+    │   ├── Applications.jsx  APPLICATION TRACKER (7975 bytes)
+    │   │                       Lists all tracked applications with status badges
+    │   │                       Status pipeline: Saved → Applied → Interview → Offer / Rejected
+    │   │                       Status update dropdown per application
+    │   │                       Manual application creation (job title + company + description)
+    │   │                       Links back to job detail for each application
+    │   │                     FEATURES USED: Status management, manual entry support
+    │   │
+    │   ├── Resume.jsx        RESUME CENTER (23903 bytes)
+    │   │                       File upload: PDF, DOCX, TXT drag-and-drop
+    │   │                       Text paste area: manual resume text input
+    │   │                       Resume history: list of previously uploaded resumes
+    │   │                       Auto-trigger workflow option: upload + immediately analyze against a job
+    │   │                       Resume preview panel
+    │   │                     FEATURES USED: Multi-format file upload, text extraction preview, workflow auto-trigger
+    │   │
+    │   ├── Profile.jsx       USER PROFILE & SETTINGS (9491 bytes)
+    │   │                       User info editor (name, role)
+    │   │                       Career preferences: preferred roles, locations, dream companies
+    │   │                       Skills management
+    │   │                       Career goals editor
+    │   │                       Salary expectation
+    │   │                       Account deletion
+    │   │                     FEATURES USED: AI memory editing, profile persistence
+    │   │
+    │   └── MentorChat.jsx    AI CAREER MENTOR CHAT (14285 bytes)
+    │                           Full-screen chat interface with career-mentor Lemma agent
+    │                           Context-aware: sends resume text + chat history
+    │                           Message history display
+    │                           Action detection: parses [ACTION_TRIGGER: schedule] from AI responses
+    │                           Auto-triggers study scheduling when mentor suggests it
+    │                         FEATURES USED: Lemma agent chat, action parsing, study scheduling integration
+    │
+    └── utils/
+        ├── colorUtils.js          Company color generation (HSL from string hash)
+        │                            hashStringToColor(): Deterministic color per company name
+        │                            getCompanyColorPalette(): primary, light, dark, glow colors
+        │                            getExperienceColor(): Color per experience level
+        │                            getCompanyInitials(): 2-letter company abbreviation
+        │
+        ├── scoringUtils.js        CLIENT-SIDE MATCH SCORING (123 lines)
+        │                            calculateMatchScore(): Quick local scoring (no API call)
+        │                            Analyzes: skills overlap, title alignment, education match,
+        │                                      experience level, location (remote bonus)
+        │                            Weighted: skills (40), title (20), education (15), experience (15), location (10)
+        │                            Uses: TECH_KEYWORDS list, EDUCATION_LEVELS, EXPERIENCE_LEVELS
+        │                            Returns: score (0-100), breakdown, explanations, level (Strong/Medium/Low)
+        │
+        ├── descriptionParser.js   Job description HTML parser (4556 bytes)
+        │                            Converts HTML job descriptions to structured sections
+        │
+        └── timeUtils.js           Time formatting utilities (980 bytes)
+                                     Relative time display ("2 hours ago", "3 days ago")
+
+================================================================================
+5. LEMMA CLOUD BUNDLE — DEPLOYMENT PACKAGE
+================================================================================
+
+career-os/lemma-cloud-bundle/career-os/
+├── pod.json                 Pod definition: name="career-os", format_version=2
+│
+├── agents/                  4 LEMMA AGENTS (deployed to lemma.work)
+│   ├── opportunity-intelligence/
+│   │   ├── opportunity-intelligence.json  Agent config:
+│   │   │     model: deepseek-v4-flash, profile: system:lemma
+│   │   │     description: "Analyzes job listings, calculates match score, analyzes company details"
+│   │   │     toolsets: [WEB_SEARCH, USER_INTERACTION]
+│   │   │     permissions: gmail connector access
+│   │   └── instruction.md               Agent system instruction
+│   │
+│   ├── career-mentor/
+│   │   ├── career-mentor.json           Agent config:
+│   │   │     model: deepseek-v4-flash, profile: system:lemma
+│   │   │     description: "Analyzes resume, optimizes formatting, identifies skill gaps, generates roadmaps"
+│   │   │     toolsets: [WEB_SEARCH, TODO, USER_INTERACTION]
+│   │   │     permissions: google_calendar connector access
+│   │   └── instruction.md               Agent system instruction
+│   │
+│   ├── application-strategist/
+│   │   ├── application-strategist.json  Agent config:
+│   │   │     model: deepseek-v4-flash, profile: system:lemma
+│   │   │     description: "Writes cover letters, outreach strategies, interview prep, follow-up reminders"
+│   │   │     toolsets: [TODO, USER_INTERACTION]
+│   │   │     permissions: googletasks connector access
+│   │   └── instruction.md               Agent system instruction
+│   │
+│   └── career-memory/
+│       ├── career-memory.json           Agent config:
+│       │     model: deepseek-v4-flash, profile: system:lemma
+│       │     description: "Stores preferences, tracks skills, logs interviews, personalizes recommendations"
+│       │     toolsets: [] (no tools)
+│       │     permissions: none
+│       └── instruction.md               Agent system instruction
+│
+├── tables/                  3 LEMMA TABLES (database tables in Lemma platform)
+│   ├── ai_memory/
+│   │   └── ai_memory.json              Schema: skills (JSON), preferred_roles (JSON), RLS enabled
+│   ├── applications/
+│   │   └── applications.json           Schema: job_id (TEXT), status (TEXT), RLS enabled
+│   └── workflow_state/
+│       └── workflow_state.json         Schema: status, current_agent, job_id, timestamp, RLS enabled
+│
+├── workflows/               3 LEMMA WORKFLOWS (stub definitions)
+│   ├── application-pipeline/
+│   │   └── application-pipeline.json   Nodes: FORM intake → END done
+│   ├── job-discovery/
+│   │   └── job-discovery.json          Nodes: FORM intake → END done
+│   └── status-update/
+│       └── status-update.json          Nodes: FORM intake → END done
+│
+├── apps/                    Empty (no Lemma apps defined)
+├── files/                   Empty (no Lemma files)
+├── functions/               Empty (no Lemma functions)
+├── schedules/               Empty (no Lemma scheduled tasks)
+└── surfaces/                Empty (no Lemma surfaces configured)
+
+NOTE: Backend does NOT use Lemma tables/workflows at runtime — it manually chains
+REST conversations via lemma_client.py. Lemma tables are created but data lives in MongoDB.
+
+================================================================================
+6. LEMMA SCHEMAS — REFERENCE DEFINITIONS
+================================================================================
+
+career-os/lemma_schemas/
+├── job_matcher.json             Agent: "Analyze job + user skills → match %"
+├── opportunity_scout.json       Agent: "Discover best jobs from 5000+ scraped jobs"
+├── career_mentor.json           Agent: "High-level career guidance for specific role"
+├── resume_advisor.json          Agent: "Rewrite resume for ATS compatibility"
+├── interview_coach.json         Agent: "Generate behavioral + technical questions"
+├── application_strategist.json  Agent: "Final recommendation: Apply Now / Wait / Skip"
+├── ai_memory.json               Table: skills (JSON), preferred_roles (JSON)
+├── applications.json            Table: job_id (TEXT), status (TEXT)
+├── application_pipeline.json    Workflow: FORM intake → END
+├── status_update.json           Workflow: FORM intake → END
+└── workflow_state.json          Table: status, current_agent, job_id, timestamp
+
+NOTE: These are REFERENCE schemas — not loaded at runtime. The actual agents are created
+by setup_lemma.ps1/sh scripts and deployed in lemma-cloud-bundle/. Original 6 agent schemas
+are listed here but only 4 are deployed (opportunity-intelligence, career-mentor,
+application-strategist, career-memory). The old names (job-matcher, opportunity-scout,
+resume-advisor, interview-coach) were consolidated into the 4 deployed agents.
+
+================================================================================
+7. MOCK MODULES — WINDOWS COMPATIBILITY
+================================================================================
+
+career-os/mock_modules/
+├── termios.py    Stub for Unix-only termios module (TCSADRAIN, tcgetattr, tcsetattr)
+└── tty.py        Stub for Unix-only tty module (setcbreak)
+
+PURPOSE: Lemma CLI on Windows imports termios/tty which don't exist.
+USAGE: Set PYTHONPATH to include mock_modules/ before running lemma CLI commands:
+       $env:PYTHONPATH = "career-os/mock_modules"
+
+================================================================================
+8. WORKFLOWS FOLDER — STUB DEFINITIONS
+================================================================================
+
+career-os/workflows/
+└── job-discovery/
+    └── job-discovery.json     Stub: FORM intake → END done
+
+PURPOSE: Placeholder Lemma workflow JSON definitions. Backend does NOT call these at
+runtime — it manually orchestrates agents via REST conversations in workflow_service.py.
+These exist for potential future migration to Lemma native workflow execution.
+
+================================================================================
+9. JOB SCRAPER — DATA PIPELINE (SEPARATE PROJECT)
+================================================================================
+
+gappyAI/jobScraper/jobaggrigater/
+├── scraper.py          Main scraper (68KB — multi-source job aggregator)
+│                         Scrapes jobs from multiple job portals
+│                         Stores results in MongoDB Atlas database "jobagg", collection "jobs"
+│                         Each job document: title, company, location (string or object),
+│                         experience, description (HTML), logo, date_posted, apply_link, technologies
+├── s.py                Helper/secondary scraper script
+├── requirements.txt    Scraper-specific Python dependencies
+└── Dockerfile          Container build for running scraper in production/CI
+
+PURPOSE: Populates MongoDB with real job listings that CareerOS frontend displays and
+         AI agents analyze. The scraper is run independently — its output feeds the
+         career-os/backend GET /jobs/ endpoint.
+
+================================================================================
+10. OLD UI — LEGACY PROJECT (ARCHIVED)
+================================================================================
+
+gappyAI/oldui/jobportal/
+├── backend/     Old Express.js backend (Node.js)
+├── frontend/    Old React frontend
+└── README.md    Legacy documentation
+
+PURPOSE: Previous version of the job portal. Contains fileParser.js (client-side
+PDF/DOCX parsing) which was reference for backend/services/resume_parser.py.
+NOT actively maintained — preserved for reference only.
+
+================================================================================
+11. TECH STACK SUMMARY
+================================================================================
+
+Backend:  Python 3.13, FastAPI 0.110+, Motor 3.4+ (async MongoDB), httpx 0.27+
+          google-genai 1.0+ (Gemini), PyJWT 2.8+, bcrypt 4.1+
+          pymupdf 1.24+ (PDF parsing), python-docx 1.1+ (DOCX parsing)
+          python-multipart 0.0.9+ (file uploads), pydantic 2.7+ (with email)
+
+Frontend: React 18.3, Vite 5.4, TailwindCSS 3.4, axios 1.7
+          react-router-dom 6.21, lucide-react 0.468 (icons)
+
+Database: MongoDB Atlas — database name "jobagg"
+          Collections: users, memory, jobs, resumes, applications,
+                       workflow_events, workflow_results, calendar_schedules, todo_tasks
+
+Lemma:    Cloud API: https://api.lemma.work
+          Local stack: http://127.0.0.1:8711 (Docker via lemma-stack start)
+          Pod name: career-os
+          Pod ID: from ~/.lemma/config.json or LEMMA_POD_ID env var
+          Agents: 4 deployed (opportunity-intelligence, career-mentor,
+                  application-strategist, career-memory)
+          Model: deepseek-v4-flash via system:lemma profile
+          Connectors: Google Calendar, Google Tasks, Gmail (via Lemma platform)
+
+================================================================================
+12. MONGODB COLLECTIONS — COMPLETE MAP
+================================================================================
+
+Database: jobagg
+
+| Collection         | Used By           | Purpose                                        |
+|--------------------|-------------------|-------------------------------------------------|
+| users              | auth.py           | User accounts (email, name, password_hash, role)|
+| memory             | memory.py, ai.py  | Per-user AI memory (resume, skills, prefs, goals)|
+| jobs               | jobs.py           | Scraped job listings from jobScraper             |
+| resumes            | resumes.py        | Uploaded resume text + metadata                  |
+| applications       | applications.py   | Job applications with status pipeline            |
+| workflow_events    | events.py         | Timeline log of all agent/workflow activity      |
+| workflow_results   | ai.py             | Cached workflow results (by user+job+resume hash)|
+| calendar_schedules | ai.py             | Study blocks scheduled via career-mentor         |
+| todo_tasks         | ai.py             | Outreach tasks created via application-strategist|
+
+================================================================================
+13. API ENDPOINTS — COMPLETE MAP
+================================================================================
+
+AUTHENTICATION:
+  POST /auth/register                → Register user (email, password, name, role)
+  POST /auth/login                   → Login → JWT token (72h expiry)
+  GET  /auth/me                      → Current user info from JWT
+  GET  /auth/profile                 → Full profile + memory + stats
+  PATCH /auth/profile                → Update user + memory fields
+  DELETE /auth/account               → Delete user + all data
+
+JOBS:
+  GET  /jobs/?title=&company=&location=&experience=&page=&limit=  → Filtered/paginated job list
+  GET  /jobs/{job_id}                → Single job detail
+
+RESUMES:
+  POST /resumes/upload               → Save resume text → update memory
+  POST /resumes/upload-file?auto_workflow=&job_id= → Upload file → extract → optional auto-workflow
+  GET  /resumes/                     → List user's resumes
+
+AI MEMORY:
+  GET  /memory/                      → Get AI memory
+  POST /memory/                      → Full replace memory
+  PATCH /memory/                     → Partial update memory
+
+AI SERVICES & WORKFLOW:
+  GET  /ai/lemma/status              → Full Lemma health diagnostics
+  GET  /ai/connectors/status         → Gmail/Calendar/Tasks connector status
+  POST /ai/autonomous                → Full 4-agent pipeline (with caching)
+  POST /ai/workflow/stream           → SSE streaming 4-agent pipeline
+  POST /ai/workflow                  → Alias for /ai/autonomous
+  POST /ai/match                     → Single resume↔job match
+  POST /ai/resume/optimize           → Single resume optimization
+  POST /ai/interview/questions       → Single interview Q generation
+  GET  /ai/workflow/result/{job_id}  → Fetch cached result
+  POST /ai/chat                      → Chat co-pilot with career-mentor
+  POST /ai/action/schedule           → Schedule study blocks (MongoDB + Google Calendar)
+  POST /ai/action/tasks              → Create Google Tasks
+  GET  /ai/action/gmail-sync         → Simulate inbound recruiter email + auto-promote
+
+APPLICATIONS:
+  POST /applications/                → Create/upsert application
+  GET  /applications/                → List user's applications (with job details)
+  PUT  /applications/{id}/status?status= → Update application status
+
+DASHBOARD:
+  POST /dashboard/recommendations    → AI-ranked job recommendations
+  GET  /dashboard/analytics          → Application funnel metrics
+
+EVENTS:
+  GET  /events/                      → Last 50 workflow timeline events
+
+ROOT:
+  GET  /                             → Health check (mongo, gemini, lemma status)
+
+================================================================================
+14. 4-AGENT CHAINED WORKFLOW — DETAILED FLOW
+================================================================================
+
+Trigger: POST /ai/autonomous or POST /ai/workflow/stream
+
+Input: resume_text + job_description + company + job_id (optional)
+
+STEP 1: opportunity-intelligence (Lemma agent)
+  Input: Resume (4000 chars) + Job Description + Company name
+  Output: {
+    match_score: 85,
+    strengths: [...], missing_skills: [...], matched_skills: [...],
+    reasoning: "...",
+    company_intelligence: {
+      culture, tech_stack, hiring_trend, interview_process, salary_range, red_flags
+    }
+  }
+
+STEP 2: career-mentor (Lemma agent)
+  Input: Resume (3000 chars) + Step 1 results
+  Output: {
+    optimized_resume: "...",
+    ats_suggestions: [...], keyword_suggestions: [...],
+    skills: [{ name, difficulty, hours, resources, depends_on }, ...]
+  }
+
+STEP 3: application-strategist (Lemma agent)
+  Input: Job Description + Resume + Step 1 + Step 2 results
+  Output: {
+    recommendation: "Apply Now|Wait|Skip", reasoning: "...",
+    cover_letter: "...", recruiter_email: "...", linkedin_message: "...",
+    follow_up_email: "...", recruiter_outreach: "...", follow_up_timeline: "...",
+    checklist: [...],
+    behavioral_questions: [...], technical_questions: [...],
+    preparation_plan: "...", company_research: "...", tech_deep_dive: [...]
+  }
+
+STEP 4: career-memory (Lemma agent)
+  Input: Step 1 + Step 2 + Step 3 summaries
+  Output: { memory_saved: true, status: "synced", run_summary: "...", key_action: "..." }
+
+Post-processing:
+  - Updates AI memory (missing skills → skills_improving, company → applied_companies)
+  - Caches result in workflow_results (keyed by user_id + job_id + resume MD5 hash)
+  - Logs events to Mission Control timeline
+  - SSE version sends real-time agent_start/agent_complete events
+
+Fallback chain:
+  Lemma agent → (if fails) → heuristic defaults
+  Gemini direct path available but not currently in main pipeline (used in individual endpoints)
+
+================================================================================
+15. CONNECTOR INTEGRATIONS — GOOGLE WORKSPACE
+================================================================================
+
+Via Lemma Connector Operations API:
+
+1. Google Calendar (auth_config: "google_calendar")
+   Operation: GOOGLECALENDAR_CREATE_EVENT
+   Used by: POST /ai/action/schedule → creates study blocks
+   Also: GET /ai/action/gmail-sync → auto-schedules interview prep
+
+2. Google Tasks (auth_config: "googletasks")
+   Operation: GOOGLETASKS_CREATE_TASK
+   Used by: POST /ai/action/tasks → creates outreach checklist items
+
+3. Gmail (auth_config: "gmail")
+   Used by: GET /ai/action/gmail-sync → simulates inbound recruiter email detection
+   Note: Currently demo/simulated — reads from application data, not actual inbox
+
+Connector Status: GET /ai/connectors/status checks Lemma /connectors/accounts
+
+================================================================================
+16. ENVIRONMENT VARIABLES
+================================================================================
+
+backend/.env:
+  PORT=5002                           FastAPI port
+  MONGO_URI=mongodb+srv://...         MongoDB Atlas connection string
+  GEMINI_API_KEY=AIza...              Google Gemini API key
+  JWT_SECRET=...                      JWT signing secret
+  PREFER_LEMMA=true                   Use Lemma agents as primary (true/false)
+  LEMMA_RUNTIME_PROFILE=019f...       Lemma runtime profile ID for agents
+  LEMMA_RUNTIME_MODEL=gemini-2.5-flash  Model for Lemma agents
+  LEMMA_ONLY=false                    If true, skip all Gemini direct fallbacks
+  LEMMA_API_URL=https://api.lemma.work  Lemma API base URL
+  LEMMA_POD_ID=019f...                Lemma pod ID override
+
+Also reads from ~/.lemma/config.json:
+  servers.local.defaults.pod_id       Fallback pod ID
+  servers.local.auth.access_token     Lemma auth token
+  servers.local.auth.refresh_token    Lemma refresh token
+  servers.local.base_url              Lemma base URL
+
+================================================================================
+17. FRONTEND PAGES — FEATURES USED STATUS
+================================================================================
+
+| Page          | Route           | Size    | Features Used                                    | Status  |
+|---------------|-----------------|---------|--------------------------------------------------|---------|
+| Login         | /login          | 3.8KB   | JWT auth, register/login toggle                  | DONE    |
+| Dashboard     | /               | 17.2KB  | Analytics, recommendations, timeline, connectors | DONE    |
+| Jobs          | /jobs           | 13.9KB  | Search, filters, pagination, manual job input    | DONE    |
+| JobDetail     | /jobs/:id       | 68.2KB  | Streaming workflow, tabs, export, chat, actions  | DONE    |
+| Applications  | /applications   | 8.0KB   | Status pipeline, manual entry, job links         | DONE    |
+| Resume        | /resume         | 23.9KB  | File upload (PDF/DOCX/TXT), text paste, history  | DONE    |
+| Profile       | /profile        | 9.5KB   | Career prefs, skills, goals, account delete      | DONE    |
+| MentorChat    | /mentor         | 14.3KB  | AI chat, action parsing, study scheduling        | DONE    |
+
+================================================================================
+18. WHAT IS DONE (WORKING — VERIFIED)
+================================================================================
+
+[YES] User authentication (register, login, JWT, protected routes)
+[YES] Job browsing from MongoDB scraper data with search/filter/pagination
+[YES] Job detail page with HTML descriptions (FormattedJobDescription component)
+[YES] Lemma client with token refresh + pod_id from config
+[YES] 4-agent Lemma chained workflow (opportunity-intelligence → career-mentor → application-strategist → career-memory)
+[YES] SSE streaming workflow with real-time agent progress in frontend
+[YES] Workflow result caching (by user + job + resume MD5 hash + workflow version)
+[YES] Heuristic fallback clearly labeled (not masquerading as AI)
+[YES] UI shows Lemma Runtime source badge
+[YES] Resume file upload (PDF/DOCX/TXT) with text extraction
+[YES] Resume text paste + save to MongoDB
+[YES] AI memory per user (preferences, skills, goals, resume)
+[YES] Application tracker with status pipeline (Saved/Applied/Interview/Offer/Rejected)
+[YES] Manual application creation (supports non-ObjectId job IDs)
+[YES] Dashboard recommendations via Lemma opportunity-intelligence agent
+[YES] Dashboard analytics (MongoDB aggregation — real data only)
+[YES] Mission Control timeline (live workflow event feed)
+[YES] Workflow events logging (agent completions, app saves, connector actions)
+[YES] Cover letter + recruiter email + LinkedIn message generation
+[YES] Interview prep (behavioral + technical questions + prep plan)
+[YES] Skill learning roadmap with difficulty/hours/resources/dependencies
+[YES] Export functionality for all agent outputs
+[YES] Chat co-pilot with career-mentor agent (context-aware)
+[YES] Study scheduling → MongoDB + Google Calendar via Lemma connector
+[YES] Google Tasks creation via Lemma connector
+[YES] Gmail sync simulation (inbound email → auto-promote to Interview)
+[YES] Connector status display (Gmail, Calendar, Tasks)
+[YES] User profile editing (name, role, career prefs, skills, goals)
+[YES] Account deletion with full data cleanup
+[YES] Duplicate application prevention (upsert pattern)
+[YES] Manual job description input on Jobs page (paste + analyze)
+[YES] "Load AI Scores" button (opt-in, saves LLM quota)
+[YES] Vite proxy configured for all API routes
+[YES] CORS middleware configured
+[YES] Test scripts: test_run_agent.py, test_web_app_lemma.py, test_api_workflow_flow.py
+[YES] Lemma setup scripts for Windows + Linux
+[YES] Lemma cloud deployment bundle (lemma-cloud-bundle/)
+[YES] Lemma pod hosted on lemma.work (LEMMA_API_URL=https://api.lemma.work)
+
+================================================================================
+19. WHAT IS PARTIAL / MISSING / BROKEN
+================================================================================
+
+[PARTIAL] Lemma native workflows — backend chains REST conversations manually, not using
+          Lemma workflow engine. Workflow stubs exist in lemma-cloud-bundle/workflows/ but
+          are minimal FORM→END definitions.
+[PARTIAL] Lemma tables created (ai_memory, applications, workflow_state) but app uses
+          MongoDB for all data. Tables exist in Lemma but are not read/written by backend.
+[PARTIAL] Gmail integration — currently simulated (reads from app data, not actual inbox).
+          Real Gmail connector permissions exist on opportunity-intelligence agent.
+[PARTIAL] Google Calendar/Tasks — connector operations wired but depend on user having
+          connected their Google account in Lemma platform.
+
+[MISSING] Kanban application board UI (currently flat list)
+[MISSING] Dedicated interview prep page (results shown in JobDetail tabs)
+[MISSING] Email/push notifications
+[MISSING] Opportunity scout as scheduled cron job
+[MISSING] Salary negotiator agent
+[MISSING] Company deep-research agent
+[MISSING] Skill gap analyzer across multiple jobs
+[MISSING] Lemma surfaces configuration
+[MISSING] Lemma schedules configuration
+[MISSING] Lemma functions configuration
+
+[ISSUE] Gemini free tier quota — Lemma agents use separate model credits, 429 errors possible
+[ISSUE] Windows lemma CLI needs mock_modules/termios.py (PYTHONPATH workaround)
+[ISSUE] Port 5002 conflict — kill old uvicorn before restart
+[ISSUE] Job descriptions contain HTML <br> tags — strip_html() before sending to agents
+
+================================================================================
+20. AI MEMORY SCHEMA — FULL FIELD MAP
+================================================================================
+
+Stored per user in MongoDB "memory" collection:
+
+  user_id                  string    User ObjectId reference
+  resume_text              string    Full extracted resume text
+  preferred_roles          string[]  ["Software Engineer", "Backend Developer"]
+  preferred_locations      string[]  ["Remote", "Bangalore"]
+  salary_expectation       string    "15-20 LPA"
+  career_goals             string    Free-text career aspirations
+  dream_companies          string[]  ["Google", "Microsoft"]
+  ignored_companies        string[]  Companies user doesn't want
+  applied_companies        string[]  Auto-updated when workflow runs
+  rejected_companies       string[]  Companies that rejected user
+  skills                   string[]  User's current skills
+  skills_improving         string[]  Auto-updated from workflow missing_skills
+  preferred_tech_stack     string[]  Preferred technologies
+  past_interviews          string[]  Interview history notes
+  weak_interview_topics    string[]  Topics to improve on
+
+Every agent reads memory for context. Every workflow run updates:
+  - skills_improving (from match analysis missing_skills)
+  - applied_companies (adds company name)
+  - resume_text (latest upload)
+
+================================================================================
+21. EVENT TYPES — MISSION CONTROL TIMELINE
+================================================================================
+
+| Event Type                  | Source Agent           | Description                          |
+|-----------------------------|-----------------------|--------------------------------------|
+| workflow.started            | orchestrator          | Pipeline begins                      |
+| workflow.completed          | orchestrator          | Pipeline finished (+ source + score) |
+| agent.completed             | [agent-name]          | Individual agent finished             |
+| resume.saved                | system                | Resume text saved                    |
+| resume.uploaded             | system                | File uploaded + text extracted        |
+| application.saved           | application-strategist| New application created              |
+| application.status          | —                     | Application status changed           |
+| connector.action.calendar   | career-mentor         | Study block scheduled in G Calendar  |
+| connector.action.tasks      | application-strategist| Task created in Google Tasks         |
+| connector.action.gmail      | career-memory         | Inbound email detected (simulated)   |
+
+================================================================================
+22. HOW TO RUN (DEVELOPER GUIDE)
+================================================================================
+
+Terminal 1 — Backend:
+  cd career-os/backend
+  pip install -r requirements.txt
+  python -m uvicorn main:app --port 5002 --host 127.0.0.1
+
+Terminal 2 — Frontend:
+  cd career-os/frontend
+  npm install
+  npm run dev
+  → http://localhost:3000
+
+Lemma (if testing agents):
+  $env:PYTHONPATH = "career-os/mock_modules"   # Windows — fixes termios
+  lemma auth print-token                        # refresh token if 401
+  python test_run_agent.py                      # direct agent smoke test
+  python test_web_app_lemma.py                  # full API integration test
+
+Env vars (backend/.env):
+  PORT=5002
+  MONGO_URI=mongodb+srv://...
+  GEMINI_API_KEY=...
+  JWT_SECRET=...
+  PREFER_LEMMA=true
+  LEMMA_POD_ID=...
+  LEMMA_API_URL=https://api.lemma.work
+
+================================================================================
+23. KEY FILES FOR AGENTS TO EDIT
+================================================================================
+
+Backend (Python):
+  main.py                          App entry, 8 route modules registered
+  routes/ai.py                     Workflow orchestration (549 lines — most complex route)
+  routes/auth.py                   Login/register/profile/delete
+  routes/jobs.py                   Job listing with filters
+  routes/applications.py           Application CRUD + status pipeline
+  routes/resumes.py                Upload + file parse + auto-workflow
+  routes/dashboard.py              Recommendations + analytics
+  routes/memory.py                 AI memory CRUD
+  routes/events.py                 Timeline events
+  services/lemma_client.py         Lemma REST client (498 lines — critical integration)
+  services/workflow_service.py     Chained agent pipeline (650 lines — core logic)
+  services/ai_service.py           Gemini + heuristic fallback
+  services/recommendation_service.py Job ranking via Lemma agent
+  services/analytics_service.py    Dashboard metrics
+  services/auth_service.py         JWT + bcrypt
+  services/event_service.py        Activity logger
+  services/resume_parser.py        PDF/DOCX extraction
+  models/schemas.py                Pydantic models (14 schemas)
+  database.py                      MongoDB connection
+  dependencies.py                  Auth middleware
+
+Frontend (React/JSX):
+  src/App.jsx                      Routes + navbar + auth wrapper
+  src/api.js                       API client (249 lines — all endpoints)
+  src/context/AuthContext.jsx      Auth state management
+  src/pages/Dashboard.jsx          Mission Control (17KB)
+  src/pages/Jobs.jsx               Job listing + search (14KB)
+  src/pages/JobDetail.jsx          Workflow launcher (68KB — largest file)
+  src/pages/Applications.jsx       Application tracker (8KB)
+  src/pages/Resume.jsx             Resume center (24KB)
+  src/pages/Profile.jsx            User settings (9.5KB)
+  src/pages/MentorChat.jsx         AI chat (14KB)
+  src/pages/Login.jsx              Auth page (4KB)
+  src/components/JobCard.jsx       Job card (9.5KB)
+  src/components/FormattedJobDescription.jsx  HTML description renderer (3.6KB)
+  src/utils/colorUtils.js          Company color generation
+  src/utils/scoringUtils.js        Client-side match scoring
+  src/utils/descriptionParser.js   Description parser
+  src/utils/timeUtils.js           Time formatting
+
+Config:
+  vite.config.js                   Proxy + dev server config
+  tailwind.config.js               Theme customization
+  backend/.env                     All environment variables
+
+Tests (run sparingly — saves LLM quota):
+  test_run_agent.py                Direct Lemma agent test
+  test_web_app_lemma.py            Full integration test
+  test_api_workflow_flow.py        API workflow flow test
+
+================================================================================
+24. KNOWN GOTCHAS
+================================================================================
+
+1. Lemma token expires → run: lemma auth print-token (with mock_modules PYTHONPATH on Windows)
+2. Gemini 429 → Lemma agents may also fail if using Gemini profile. Use system:lemma or wait.
+3. Port 5002 conflict → kill old uvicorn before restart
+4. Job descriptions contain HTML <br> tags → strip_html() in lemma_client.py before sending
+5. POST /memory/ with only resume_text used to wipe fields → use PATCH or $set partial update
+6. Fallback match gives ~35% with words like "and","based" → means NO real AI ran
+7. Lemma credits limited → dev with Gemini key, demo with Lemma
+8. Windows: lemma CLI needs $env:PYTHONPATH="career-os/mock_modules" for termios stub
+9. Cached results use workflow_version="v4.0" — change version to bust cache after updates
+10. SSE streaming uses native fetch() in frontend (not axios) — api.js has both patterns
+11. MongoDB "jobagg" database must exist with job data from jobScraper for Jobs page to work
+12. Agent response parsing: extract_json() handles markdown wrappers, nested JSON, regex fallback
+13. Connector operations require user to have connected Google account in Lemma platform
+14. The 6 original agent names (job-matcher, opportunity-scout, resume-advisor, interview-coach,
+    career-mentor, application-strategist) were consolidated to 4 deployed agents in cloud bundle
+
+================================================================================
+25. IMPLEMENTATION PLAN (PRIORITY ORDER)
+================================================================================
+
+PHASE 1 — Foundation (COMPLETED)
+  [x] agentmemory.txt
+  [x] JWT auth (register/login/me/profile)
+  [x] Resume PDF/DOCX upload + text extraction
+  [x] Expanded memory schema + partial updates
+  [x] Workflow events collection + GET /events timeline
+  [x] 4-agent chained Lemma workflow with SSE streaming
+  [x] Login page + AuthContext + protected routes
+  [x] Mission Control Dashboard (real timeline, analytics, recommendations)
+  [x] Resume page with file upload
+  [x] Duplicate application guard
+  [x] Cover letter + outreach in workflow output
+  [x] Chat co-pilot with career-mentor
+  [x] Google Calendar/Tasks connector integration
+  [x] Gmail sync simulation
+  [x] Export functionality for all outputs
+  [x] Profile editing + account deletion
+  [x] Lemma cloud deployment bundle
+
+PHASE 2 — Hackathon polish
+  [ ] Kanban applications board
+  [ ] Dedicated interview prep page
+  [ ] Switch all agents to system:lemma profile for demo
+  [ ] Host pod on lemma.work + grant ayush@gappy.ai access
+  [ ] Demo video recording
+
+PHASE 3 — Post-hackathon
+  [ ] Lemma native workflows (replace manual REST chain)
+  [ ] Opportunity scout scheduled job (cron/lemma schedule)
+  [ ] Email notifications via Lemma surfaces
+  [ ] Salary negotiator + company research agents
+  [ ] Skill gap analyzer vs 1000 jobs
+  [ ] Lemma functions for reusable logic
+  [ ] Multi-user workspace/team features
+
+================================================================================
+26. HACKATHON SUBMISSION CHECKLIST
+================================================================================
+
+[ ] Problem statement chosen (AI Career / Agentic workforce)
+[ ] Demo video OR live link on lemma.work
+[ ] GitHub repo link
+[ ] Show event-driven workflow: upload resume → automatic pipeline
+[ ] Show Lemma agents chained (not just buttons)
+[ ] Show SSE streaming — agents completing in real-time
+[ ] Show Mission Control timeline moving
+[ ] Show memory persisting across sessions
+[ ] Show connector integrations (Calendar, Tasks)
+[ ] Grant pod access to ayush@gappy.ai if hosted on lemma.work
+[ ] Star lemma-platform repo
+
+Judging criteria focus:
+  - Lemma used as OS (workflows, agents, memory, connectors) not wrapper
+  - Working product > slides
+  - Autonomous behavior > manual feature buttons
+  - Real streaming > loading spinners
+
+================================================================================
+RECENT FIXES - June 27-28, 2026
+================================================================================
+- Simplified all error/success messages (no verbose MongoDB errors)
+- Added manual job description input on Jobs page (paste job + analyze)
+- Added manual application creation on Applications page (kanban + manual entry)
+- Dashboard now uses real data only (no mock/hardcoded values)
+- Created LEMMA_DATA_USAGE.md documenting MongoDB vs Lemma storage
+- Fixed manual application creation (handles non-ObjectId job IDs)
+- Removed automatic AI scoring on Jobs page (added "Load AI Scores" button for efficiency)
+- Added export functionality for all agent outputs (cover letters, resumes, interview prep, recruiter emails)
+- Enhanced agent prompts with tech domain focus, recruiter outreach strategies, company research
+- Created APPLICATION_TRACKER_GUIDE.md documenting purpose and automation gaps
+- Fixed workflow crash error (unhashable type: 'dict') by converting agent names to strings in reasoning_graph
+- Added collapsible Job Description on JobDetail page (auto-collapses on workflow start)
+- Enhanced interview preparation schema to 10 technical + 10 behavioral questions per round
+- Added Apply Direct button to JobDetail page (supports apply_link and apply_url)
+- Added react-markdown with remark-gfm for proper markdown rendering in chat and results
+- Updated AGENT_STEPS to match 4-agent workflow (opportunity-intelligence, career-mentor, application-strategist, career-memory)
+
+================================================================================
+END OF AGENT MEMORY — FULL BLUEPRINT
+Read hackthonResource.txt for hackathon links/deadlines
+================================================================================

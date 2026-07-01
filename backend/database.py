@@ -11,7 +11,7 @@ MONGO_URI = os.getenv("MONGO_URI")
 client = None
 db = None
 
-if MONGO_URI:
+if MONGO_URI is not None:
     try:
         client = AsyncIOMotorClient(MONGO_URI)
         db = client.get_default_database("jobagg")
@@ -21,6 +21,6 @@ else:
     print("Warning: MONGO_URI not found in environment variables. Database features will fail until configured.")
 
 def get_db():
-    if not db:
+    if db is None:
         raise RuntimeError("Database connection not initialized. Please set MONGO_URI in .env")
     return db
