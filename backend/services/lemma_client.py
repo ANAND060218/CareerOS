@@ -140,18 +140,32 @@ def load_lemma_config(
             "Lemma pod_id not found. Run setup_lemma.ps1 or set LEMMA_POD_ID in the environment."
         )
 
-    token = _extract_token(server_config)
-    refresh_token = _extract_refresh_token(server_config)
+    token = (
+        os.getenv("LEMMA_TOKEN")
+        or os.getenv("LEMMA_ACCESS_TOKEN")
+        or _extract_token(server_config)
+    )
+    refresh_token = (
+        os.getenv("LEMMA_REFRESH_TOKEN")
+        or _extract_refresh_token(server_config)
+    )
     if not token:
         raise RuntimeError(
             "Lemma access token not found. Run `lemma auth login` or set LEMMA_TOKEN."
         )
 
     if refresh_if_expired and _token_expired(token) and refresh_token:
-        session = refresh_access_token(base_url, refresh_token)
-        token = session.get("access_token") or token
-        refresh_token = session.get("refresh_token") or refresh_token
-        _persist_refreshed_session(root_config, active_server, session, config_path)
+        try:
+            session = refresh_access_token(base_url, refresh_token)
+            token = session.get("access_token") or token
+            refresh_token = session.get("refresh_token") or refresh_token
+            try:
+                config_path.parent.mkdir(parents=True, exist_ok=True)
+                _persist_refreshed_session(root_config, active_server, session, config_path)
+            except Exception as write_err:
+                print(f"[LEMMA CLIENT] Warning: could not write refreshed session to {config_path}: {write_err}")
+        except Exception as refresh_err:
+            print(f"[LEMMA CLIENT] Warning: token refresh failed: {refresh_err}")
 
     return LemmaConfig(
         base_url=base_url,
