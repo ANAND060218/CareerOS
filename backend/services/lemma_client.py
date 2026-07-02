@@ -23,6 +23,54 @@ _SESSION_CACHE = {
 }
 
 
+# ---------------------------------------------------------------------------
+# MongoDB-based token persistence (survives Render sleep/wake & restarts)
+# ---------------------------------------------------------------------------
+_MONGO_TOKEN_KEY = "lemma_session_tokens"
+
+
+def _save_tokens_to_db(access_token: str, refresh_token: str) -> None:
+    """Persist rotated tokens to MongoDB so they survive server sleep/restart."""
+    try:
+        from pymongo import MongoClient
+        mongo_uri = os.getenv("MONGO_URI")
+        if not mongo_uri:
+            return
+        sync_client = MongoClient(mongo_uri, serverSelectionTimeoutMS=3000)
+        db = sync_client.get_database("jobagg")
+        db.lemma_tokens.update_one(
+            {"_id": _MONGO_TOKEN_KEY},
+            {"$set": {
+                "access_token": access_token,
+                "refresh_token": refresh_token,
+                "updated_at": time.time(),
+            }},
+            upsert=True,
+        )
+        sync_client.close()
+        print("[LEMMA CLIENT] Rotated tokens saved to MongoDB ✓")
+    except Exception as e:
+        print(f"[LEMMA CLIENT] Warning: could not save tokens to MongoDB: {e}")
+
+
+def _load_tokens_from_db() -> tuple[str | None, str | None]:
+    """Load latest rotated tokens from MongoDB."""
+    try:
+        from pymongo import MongoClient
+        mongo_uri = os.getenv("MONGO_URI")
+        if not mongo_uri:
+            return None, None
+        sync_client = MongoClient(mongo_uri, serverSelectionTimeoutMS=3000)
+        db = sync_client.get_database("jobagg")
+        doc = db.lemma_tokens.find_one({"_id": _MONGO_TOKEN_KEY})
+        sync_client.close()
+        if doc:
+            return doc.get("access_token"), doc.get("refresh_token")
+    except Exception as e:
+        print(f"[LEMMA CLIENT] Warning: could not load tokens from MongoDB: {e}")
+    return None, None
+
+
 @dataclass
 class LemmaConfig:
     base_url: str
@@ -152,7 +200,15 @@ def load_lemma_config(
     token = _SESSION_CACHE["token"]
     refresh_token = _SESSION_CACHE["refresh_token"]
 
-    # 2. If not in cache, load from config file if it exists and has auth (prevents using stale .env values)
+    # 2. If not in cache, try MongoDB (survives Render sleep/wake)
+    if not token:
+        db_token, db_refresh = _load_tokens_from_db()
+        if db_token:
+            print("[LEMMA CLIENT] Loaded tokens from MongoDB (post-sleep recovery)")
+            token = db_token
+            refresh_token = db_refresh or refresh_token
+
+    # 3. If not in MongoDB, load from config file if it exists
     if not token:
         config_token = _extract_token(server_config)
         if config_token:
@@ -161,7 +217,7 @@ def load_lemma_config(
             if config_refresh:
                 refresh_token = config_refresh.strip()
 
-    # 3. If still not found, fall back to environment variables (for cloud/Docker environments)
+    # 4. If still not found, fall back to environment variables (for cloud/Docker environments)
     if not token:
         env_token = os.getenv("LEMMA_TOKEN") or os.getenv("LEMMA_ACCESS_TOKEN")
         if env_token:
@@ -181,9 +237,10 @@ def load_lemma_config(
             token = session.get("access_token") or token
             refresh_token = session.get("refresh_token") or refresh_token
             
-            # Cache the rotated session in-memory
+            # Cache the rotated session in-memory + MongoDB
             _SESSION_CACHE["token"] = token
             _SESSION_CACHE["refresh_token"] = refresh_token
+            _save_tokens_to_db(token, refresh_token)
             
             try:
                 config_path.parent.mkdir(parents=True, exist_ok=True)
@@ -250,9 +307,10 @@ async def list_agents(config: LemmaConfig | None = None, *, timeout: float = 12.
         cfg.token = session.get("access_token") or cfg.token
         cfg.refresh_token = session.get("refresh_token") or cfg.refresh_token
         
-        # Cache the rotated session in-memory
+        # Cache the rotated session in-memory + MongoDB
         _SESSION_CACHE["token"] = cfg.token
         _SESSION_CACHE["refresh_token"] = cfg.refresh_token
+        _save_tokens_to_db(cfg.token, cfg.refresh_token)
         
         async with httpx.AsyncClient(timeout=20.0) as client:
             response = await client.get(
@@ -318,9 +376,10 @@ async def _run_agent_once(
             config.token = session.get("access_token") or config.token
             config.refresh_token = session.get("refresh_token") or config.refresh_token
             
-            # Cache the rotated session in-memory
+            # Cache the rotated session in-memory + MongoDB
             _SESSION_CACHE["token"] = config.token
             _SESSION_CACHE["refresh_token"] = config.refresh_token
+            _save_tokens_to_db(config.token, config.refresh_token)
             
             headers = auth_headers(config)
             create_response = await client.post(
